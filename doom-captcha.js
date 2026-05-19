@@ -1617,8 +1617,8 @@
 
           var voiceGain = ac.createGain();
           voiceGain.gain.setValueAtTime(0, now);
-          voiceGain.gain.linearRampToValueAtTime(0.12, now + 0.05);
-          voiceGain.gain.setValueAtTime(0.12, now + duration - 0.1);
+          voiceGain.gain.linearRampToValueAtTime(0.4, now + 0.05);
+          voiceGain.gain.setValueAtTime(0.4, now + duration - 0.1);
           voiceGain.gain.linearRampToValueAtTime(0, now + duration);
           voiceGain.connect(ac.destination);
 
@@ -1646,7 +1646,7 @@
             }
 
             var fGain = ac.createGain();
-            fGain.gain.value = 0.3 / (fi + 1);
+            fGain.gain.value = 0.8 / (fi + 1);
             glottal.connect(bp);
             bp.connect(fGain);
             fGain.connect(voiceGain);
@@ -1663,7 +1663,7 @@
           noiseFilt.frequency.value = 2500 + Math.random() * 1500;
           noiseFilt.Q.value = 1;
           var noiseGain = ac.createGain();
-          noiseGain.gain.value = 0.015;
+          noiseGain.gain.value = 0.05;
           noise.connect(noiseFilt);
           noiseFilt.connect(noiseGain);
           noiseGain.connect(voiceGain);
