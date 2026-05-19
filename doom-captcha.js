@@ -2893,8 +2893,407 @@
     return d.innerHTML;
   };
 
+  // ── Accessibility Audio ──────────────────────────────────────────────
+  function AccessibilityAudio(container, callbacks) {
+    this.container = container;
+    this.callbacks = callbacks;
+  }
+  AccessibilityAudio.id = "accessibility-audio";
+
+  AccessibilityAudio.prototype.render = function () {
+    var self = this;
+    var baseDigits = [];
+    for (var i = 0; i < 6; i++) baseDigits.push(Math.floor(Math.random() * 10));
+    var currentDigits = baseDigits.slice();
+    var playCount = 0;
+    var remaining = 30;
+
+    this.container.innerHTML =
+      '<div class="doom-challenge-title">Accessibility Audio Verification</div>' +
+      '<div class="doom-challenge-instruction">Listen to the code and type the 6 digits you hear</div>' +
+      '<div style="text-align:center;margin:16px 0">' +
+      '<div class="doom-timer">' + remaining + '</div>' +
+      '<div style="font-size:11px;color:#666;margin-bottom:16px">seconds remaining</div>' +
+      '<button class="doom-btn doom-audio-play" style="margin-bottom:12px">&#x1f50a; Play Code</button>' +
+      '<div style="font-size:11px;color:#888;margin-bottom:12px" id="doom-replay-note"></div>' +
+      '<div style="margin-top:8px">' +
+      '<input class="doom-input" type="text" maxlength="6" placeholder="_ _ _ _ _ _" style="max-width:180px;text-align:center;letter-spacing:8px;font-family:monospace;font-size:18px" />' +
+      '</div>' +
+      '<button class="doom-btn doom-submit" style="margin-top:12px">Submit</button>' +
+      '</div>';
+
+    var timerEl = this.container.querySelector(".doom-timer");
+    var timer = setInterval(function () {
+      remaining--;
+      timerEl.textContent = remaining;
+      if (remaining <= 5) timerEl.style.color = "#e94560";
+      if (remaining <= 0) {
+        clearInterval(timer);
+        self.callbacks.onFail("Audio verification timed out");
+      }
+    }, 1000);
+
+    var playBtn = this.container.querySelector(".doom-audio-play");
+    var replayNote = this.container.querySelector("#doom-replay-note");
+
+    playBtn.addEventListener("click", function () {
+      playBtn.disabled = true;
+      playBtn.textContent = "Playing...";
+
+      if (playCount > 0) {
+        var swapA = Math.floor(Math.random() * 6);
+        var swapB = (swapA + 1 + Math.floor(Math.random() * 5)) % 6;
+        currentDigits[swapA] = (currentDigits[swapA] + 1 + Math.floor(Math.random() * 9)) % 10;
+        currentDigits[swapB] = (currentDigits[swapB] + 1 + Math.floor(Math.random() * 9)) % 10;
+      }
+      playCount++;
+      if (playCount >= 2) replayNote.textContent = "Replay " + playCount + " — audio may vary due to compression";
+
+      try {
+        var ac = new (window.AudioContext || window.webkitAudioContext)();
+        var now = ac.currentTime;
+        var digitDur = 0.5;
+
+        for (var di = 0; di < 6; di++) {
+          var digit = currentDigits[di];
+          var tStart = now + di * (digitDur + 0.15);
+
+          var dtmfLow = [697, 697, 697, 770, 770, 770, 852, 852, 852, 941];
+          var dtmfHigh = [1209, 1336, 1477, 1209, 1336, 1477, 1209, 1336, 1477, 1336];
+          var freqPairs = [[dtmfLow[digit], dtmfHigh[digit]]];
+
+          for (var fp = 0; fp < freqPairs.length; fp++) {
+            for (var fi = 0; fi < 2; fi++) {
+              var osc = ac.createOscillator();
+              osc.type = "sine";
+              osc.frequency.value = freqPairs[fp][fi] + (Math.random() - 0.5) * 30;
+              var g = ac.createGain();
+              g.gain.setValueAtTime(0, tStart);
+              g.gain.linearRampToValueAtTime(0.15, tStart + 0.02);
+              g.gain.setValueAtTime(0.15, tStart + digitDur - 0.02);
+              g.gain.linearRampToValueAtTime(0, tStart + digitDur);
+              osc.connect(g);
+              g.connect(ac.destination);
+              osc.start(tStart);
+              osc.stop(tStart + digitDur);
+            }
+          }
+
+          var nLen = Math.floor(ac.sampleRate * digitDur);
+          var nBuf = ac.createBuffer(1, nLen, ac.sampleRate);
+          var nData = nBuf.getChannelData(0);
+          for (var ni = 0; ni < nLen; ni++) nData[ni] = (Math.random() * 2 - 1) * 0.7;
+          var nSrc = ac.createBufferSource();
+          nSrc.buffer = nBuf;
+          var nGain = ac.createGain();
+          nGain.gain.value = 0.12;
+          nSrc.connect(nGain);
+          nGain.connect(ac.destination);
+          nSrc.start(tStart);
+          nSrc.stop(tStart + digitDur);
+        }
+
+        var totalDur = 6 * (digitDur + 0.15);
+        setTimeout(function () {
+          playBtn.disabled = false;
+          playBtn.textContent = "\uD83D\uDD0A Replay Code";
+        }, totalDur * 1000 + 200);
+      } catch (e) {
+        playBtn.disabled = false;
+        playBtn.textContent = "\uD83D\uDD0A Play Code";
+      }
+    });
+
+    this.container.querySelector(".doom-submit").addEventListener("click", function () {
+      clearInterval(timer);
+      var answer = self.container.querySelector(".doom-input").value.replace(/\s/g, "");
+      var target = currentDigits.join("");
+      if (answer === target) {
+        self.callbacks.onPass();
+      } else if (answer === baseDigits.join("")) {
+        self.callbacks.onFail("Code expired — audio was refreshed on replay");
+      } else {
+        self.callbacks.onFail("Incorrect code: expected " + target.substring(0, 2) + "****");
+      }
+    });
+  };
+
+  // ── Draw the Line ──────────────────────────────────────────────────
+  function DrawTheLine(container, callbacks) {
+    this.container = container;
+    this.callbacks = callbacks;
+  }
+  DrawTheLine.id = "draw-the-line";
+
+  DrawTheLine.prototype.render = function () {
+    var self = this;
+    var remaining = 15;
+    var rotSpeed = 3 + Math.random() * 4;
+    if (Math.random() < 0.5) rotSpeed = -rotSpeed;
+
+    var padX = 40;
+    var padY = 30;
+    var cw = 320;
+    var ch = 180;
+    var ax = padX;
+    var ay = padY + Math.floor(Math.random() * (ch - padY * 2));
+    var bx = cw - padX;
+    var by = padY + Math.floor(Math.random() * (ch - padY * 2));
+
+    this.container.innerHTML =
+      '<div class="doom-challenge-title">Motor Precision Test</div>' +
+      '<div class="doom-challenge-instruction">Draw a straight line from A to B</div>' +
+      '<div style="text-align:center;margin:16px 0">' +
+      '<div class="doom-timer">' + remaining + '</div>' +
+      '<div style="font-size:11px;color:#666;margin-bottom:12px">seconds remaining</div>' +
+      '<div id="doom-line-wrap" style="display:inline-block;position:relative;border:1px solid #303050;border-radius:4px;overflow:hidden;transition:transform 0.1s linear">' +
+      '<canvas width="' + cw + '" height="' + ch + '" style="display:block;cursor:crosshair;background:#0a0a2a"></canvas>' +
+      '</div>' +
+      '<div style="margin-top:12px">' +
+      '<button class="doom-btn doom-submit">Verify Line</button>' +
+      '<button class="doom-btn" style="margin-left:8px;background:#333;border-color:#555" id="doom-line-clear">Clear</button>' +
+      '</div>' +
+      '</div>';
+
+    var timerEl = this.container.querySelector(".doom-timer");
+    var timer = setInterval(function () {
+      remaining--;
+      timerEl.textContent = remaining;
+      if (remaining <= 5) timerEl.style.color = "#e94560";
+      if (remaining <= 0) {
+        clearInterval(timer);
+        cancelAnimationFrame(rotFrame);
+        self.callbacks.onFail("Verification timed out");
+      }
+    }, 1000);
+
+    var canvas = this.container.querySelector("canvas");
+    var wrap = this.container.querySelector("#doom-line-wrap");
+    var ctx = canvas.getContext("2d");
+    var drawing = false;
+    var points = [];
+    var drawStart = 0;
+    var currentRot = 0;
+    var rotFrame = null;
+    var lastRotTime = null;
+
+    ctx.fillStyle = "#e94560";
+    ctx.beginPath();
+    ctx.arc(ax, ay, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#4ecdc4";
+    ctx.beginPath();
+    ctx.arc(bx, by, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.font = "bold 14px sans-serif";
+    ctx.fillStyle = "#e94560";
+    ctx.fillText("A", ax - 4, ay - 12);
+    ctx.fillStyle = "#4ecdc4";
+    ctx.fillText("B", bx - 4, by - 12);
+
+    var baseImage = ctx.getImageData(0, 0, cw, ch);
+
+    function redraw() {
+      ctx.putImageData(baseImage, 0, 0);
+      if (points.length > 1) {
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (var i = 1; i < points.length; i++) {
+          ctx.lineTo(points[i].x, points[i].y);
+        }
+        ctx.stroke();
+      }
+    }
+
+    function rotateLoop(ts) {
+      if (!drawing) return;
+      if (lastRotTime === null) lastRotTime = ts;
+      var dt = (ts - lastRotTime) / 1000;
+      lastRotTime = ts;
+      currentRot += rotSpeed * dt;
+      wrap.style.transform = "rotate(" + currentRot + "deg)";
+      rotFrame = requestAnimationFrame(rotateLoop);
+    }
+
+    function getPos(e) {
+      var r = canvas.getBoundingClientRect();
+      var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: clientX - r.left, y: clientY - r.top };
+    }
+
+    function onStart(e) {
+      e.preventDefault();
+      drawing = true;
+      drawStart = Date.now();
+      lastRotTime = null;
+      points = [getPos(e)];
+      rotFrame = requestAnimationFrame(rotateLoop);
+    }
+    function onMove(e) {
+      if (!drawing) return;
+      e.preventDefault();
+      points.push(getPos(e));
+      redraw();
+    }
+    function onEnd(e) {
+      if (!drawing) return;
+      drawing = false;
+      cancelAnimationFrame(rotFrame);
+    }
+
+    canvas.addEventListener("mousedown", onStart);
+    canvas.addEventListener("mousemove", onMove);
+    canvas.addEventListener("mouseup", onEnd);
+    canvas.addEventListener("touchstart", onStart, { passive: false });
+    canvas.addEventListener("touchmove", onMove, { passive: false });
+    canvas.addEventListener("touchend", onEnd);
+
+    this.container.querySelector("#doom-line-clear").addEventListener("click", function () {
+      points = [];
+      currentRot = 0;
+      wrap.style.transform = "rotate(0deg)";
+      redraw();
+    });
+
+    this.container.querySelector(".doom-submit").addEventListener("click", function () {
+      clearInterval(timer);
+      cancelAnimationFrame(rotFrame);
+      if (points.length < 5) {
+        self.callbacks.onFail("No line detected");
+        return;
+      }
+
+      var drawDuration = (Date.now() - drawStart) / 1000;
+
+      var maxDev = 0;
+      var dx = bx - ax;
+      var dy = by - ay;
+      var lineLen = Math.sqrt(dx * dx + dy * dy);
+
+      for (var j = 0; j < points.length; j++) {
+        var px = points[j].x - ax;
+        var py = points[j].y - ay;
+        var t = (px * dx + py * dy) / (lineLen * lineLen);
+        var projX = dx * t;
+        var projY = dy * t;
+        var dev = Math.sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY));
+        if (dev > maxDev) maxDev = dev;
+      }
+
+      var speeds = [];
+      for (var k = 1; k < points.length; k++) {
+        var sd = Math.sqrt(
+          Math.pow(points[k].x - points[k - 1].x, 2) +
+          Math.pow(points[k].y - points[k - 1].y, 2)
+        );
+        speeds.push(sd);
+      }
+      var avgSpeed = 0;
+      for (var s = 0; s < speeds.length; s++) avgSpeed += speeds[s];
+      avgSpeed /= speeds.length;
+      var variance = 0;
+      for (var sv = 0; sv < speeds.length; sv++) variance += Math.pow(speeds[sv] - avgSpeed, 2);
+      variance /= speeds.length;
+      var coeffVar = Math.sqrt(variance) / (avgSpeed || 1);
+
+      if (drawDuration < 0.4) {
+        self.callbacks.onFail("Tremor detected — possible automated input (duration: " + drawDuration.toFixed(2) + "s)");
+      } else if (coeffVar < 0.35) {
+        self.callbacks.onFail("Unnaturally consistent velocity (" + (coeffVar * 100).toFixed(1) + "% variance). Bot pattern detected.");
+      } else if (maxDev > 8) {
+        self.callbacks.onFail("Line deviation: " + maxDev.toFixed(1) + "px (max allowed: 3.0px)");
+      } else {
+        self.callbacks.onFail("Line deviation: " + (maxDev + 3.5).toFixed(1) + "px (max allowed: 3.0px)");
+      }
+    });
+  };
+
+  // ── Confidence Checkbox ────────────────────────────────────────────
+  function ConfidenceCheckbox(container, callbacks) {
+    this.container = container;
+    this.callbacks = callbacks;
+  }
+  ConfidenceCheckbox.id = "confidence-checkbox";
+
+  ConfidenceCheckbox.prototype.render = function () {
+    var self = this;
+    var windowCenter = 800 + Math.floor(Math.random() * 2400);
+    var windowSize = 40;
+    var appeared = Date.now();
+
+    this.container.innerHTML =
+      '<div class="doom-challenge-title">One-Click Verification</div>' +
+      '<div class="doom-challenge-instruction">Verify that you are human</div>' +
+      '<div style="text-align:center;margin:32px 0">' +
+      '<div style="display:inline-flex;align-items:center;background:#111;border:2px solid #303050;border-radius:4px;padding:16px 24px;cursor:pointer;user-select:none" id="doom-checkbox-row">' +
+      '<div style="width:24px;height:24px;border:2px solid #555;border-radius:3px;margin-right:16px;display:flex;align-items:center;justify-content:center;transition:all 0.15s" id="doom-cbox"></div>' +
+      '<span style="font-size:14px;color:#ccc">I\'m not a robot</span>' +
+      '</div>' +
+      '<div id="doom-cbox-status" style="margin-top:16px;min-height:20px;font-size:12px;color:#666"></div>' +
+      '<div style="margin-top:8px;font-size:10px;color:#444">DoomCaptcha Privacy — Terms</div>' +
+      '</div>';
+
+    var checkboxRow = this.container.querySelector("#doom-checkbox-row");
+    var cbox = this.container.querySelector("#doom-cbox");
+    var status = this.container.querySelector("#doom-cbox-status");
+    var clicked = false;
+
+    var analyzing = [
+      "Analyzing click pattern...",
+      "Verifying input device...",
+      "Checking browser fingerprint...",
+      "Validating interaction metrics...",
+      "Cross-referencing behavioral model..."
+    ];
+
+    checkboxRow.addEventListener("click", function () {
+      if (clicked) return;
+      clicked = true;
+
+      var elapsed = Date.now() - appeared;
+
+      cbox.style.borderColor = "#4ecdc4";
+      cbox.style.background = "#4ecdc4";
+      cbox.innerHTML = '<span style="color:#000;font-weight:bold;font-size:16px">&#x2713;</span>';
+
+      var step = 0;
+      status.style.color = "#888";
+      status.textContent = analyzing[0];
+
+      var analyzeTimer = setInterval(function () {
+        step++;
+        if (step < analyzing.length) {
+          status.textContent = analyzing[step];
+        } else {
+          clearInterval(analyzeTimer);
+
+          cbox.style.borderColor = "#e94560";
+          cbox.style.background = "transparent";
+          cbox.innerHTML = '<span style="color:#e94560;font-weight:bold;font-size:16px">&#x2717;</span>';
+          status.style.color = "#e94560";
+
+          if (elapsed < windowCenter - windowSize / 2) {
+            status.textContent = "FAILED: Bot-like response time (" + (elapsed / 1000).toFixed(2) + "s). Human reaction range: " + ((windowCenter - windowSize / 2) / 1000).toFixed(2) + "s - " + ((windowCenter + windowSize / 2) / 1000).toFixed(2) + "s";
+            setTimeout(function () { self.callbacks.onFail("Bot-like response time detected (" + (elapsed / 1000).toFixed(2) + "s)"); }, 2000);
+          } else if (elapsed > windowCenter + windowSize / 2) {
+            status.textContent = "FAILED: Scripted wait() detected. Response delay " + (elapsed / 1000).toFixed(2) + "s matches setTimeout pattern.";
+            setTimeout(function () { self.callbacks.onFail("Scripted wait() pattern detected"); }, 2000);
+          } else {
+            status.textContent = "FAILED: Click coordinates match known automation framework (±2px grid alignment)";
+            setTimeout(function () { self.callbacks.onFail("Click pattern matches automation framework"); }, 2000);
+          }
+        }
+      }, 600);
+    });
+  };
+
   // ── Engine ──────────────────────────────────────────────────────────
-  var ALL_CHALLENGES = [ImpossibleMath, PixelHunt, EndlessGrid, RebelliousSlider, IdentityGauntlet, TypingSpeed, JigsawPiece, TermsOfService, AudioTranscription, ColorMatch, PatienceTest, SudokuTrap, BiggerNumber, CursedSMS, PhantomWord, AlwaysWrongRiddles];
+  var ALL_CHALLENGES = [ImpossibleMath, PixelHunt, EndlessGrid, RebelliousSlider, IdentityGauntlet, TypingSpeed, JigsawPiece, TermsOfService, AudioTranscription, ColorMatch, PatienceTest, SudokuTrap, BiggerNumber, CursedSMS, PhantomWord, AlwaysWrongRiddles, AccessibilityAudio, DrawTheLine, ConfidenceCheckbox];
 
   function DoomCaptchaEngine(container, options) {
     this.container = typeof container === "string" ? document.querySelector(container) : container;
