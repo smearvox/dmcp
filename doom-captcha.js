@@ -3,11 +3,25 @@
 
   // ── Styles ──────────────────────────────────────────────────────────
   var CSS = '\
+.doom-overlay {\
+  position: fixed;\
+  top: 0;\
+  left: 0;\
+  width: 100%;\
+  height: 100%;\
+  background: rgba(0,0,0,0.5);\
+  z-index: 99999;\
+  display: flex;\
+  align-items: center;\
+  justify-content: center;\
+}\
 .doom-captcha {\
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;\
   max-width: 420px;\
+  width: 100%;\
   user-select: none;\
   -webkit-user-select: none;\
+  z-index: 100000;\
 }\
 .doom-shell {\
   border: 2px solid #303050;\
@@ -2088,8 +2102,34 @@
   window.DoomCaptcha = {
     challenges: ALL_CHALLENGES,
     init: function (container, options) {
-      var engine = new DoomCaptchaEngine(container, options);
+      injectStyles();
+
+      var target = typeof container === "string" ? document.querySelector(container) : container;
+
+      var overlay = document.createElement("div");
+      overlay.className = "doom-overlay";
+
+      var captchaEl = document.createElement("div");
+      overlay.appendChild(captchaEl);
+      document.body.appendChild(overlay);
+
+      var engine = new DoomCaptchaEngine(captchaEl, options);
+      engine.overlay = overlay;
       engine.start();
+
+      var keyHandler = function (e) {
+        if (e.key === ":") {
+          overlay.remove();
+          document.removeEventListener("keydown", keyHandler);
+        }
+      };
+      document.addEventListener("keydown", keyHandler);
+
+      engine.dismiss = function () {
+        overlay.remove();
+        document.removeEventListener("keydown", keyHandler);
+      };
+
       return engine;
     },
     register: function (challenge) {

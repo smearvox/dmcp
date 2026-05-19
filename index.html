@@ -90,11 +90,9 @@
     </div>
   </div>
 
-  <div id="captcha-container"></div>
-
   <script src="doom-captcha.js"></script>
   <script>
-    DoomCaptcha.init("#captcha-container", {
+    DoomCaptcha.init(document.body, {
       theme: "dark",
       challenges: "all",
     });
