@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DoomCaptcha Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a1a;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+      color: #e94560;
+    }
+
+    .tagline {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 40px;
+    }
+
+    #captcha-container {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .mock-form {
+      width: 100%;
+      max-width: 420px;
+      background: #16213e;
+      border: 1px solid #303050;
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .mock-form h2 {
+      font-size: 18px;
+      margin-bottom: 16px;
+      color: #e0e0e0;
+    }
+
+    .mock-field {
+      margin-bottom: 12px;
+    }
+
+    .mock-field label {
+      display: block;
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+
+    .mock-field input {
+      width: 100%;
+      background: #0f3460;
+      border: 1px solid #303050;
+      color: #e0e0e0;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>DoomCaptcha</h1>
+  <p class="tagline">Human verification that verifies nothing.</p>
+
+  <div class="mock-form">
+    <h2>Secure Login</h2>
+    <div class="mock-field">
+      <label>Email</label>
+      <input type="email" value="definitely@real-bank.com" />
+    </div>
+    <div class="mock-field">
+      <label>Password</label>
+      <input type="password" value="hunter2" />
+    </div>
+  </div>
+
+  <div id="captcha-container"></div>
+
+  <script src="doom-captcha.js"></script>
+  <script>
+    DoomCaptcha.init("#captcha-container", {
+      theme: "dark",
+      challenges: "all",
+    });
+  </script>
+</body>
+</html>
