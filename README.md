@@ -60,6 +60,27 @@ A canvas renders overlapping text layers — one prominent bait word and five fa
 ### Always-Wrong Riddles
 Multiple choice riddles where every answer is defensibly correct: "How many sides does a circle have?" (0, 1, 2, or infinite). No matter which you pick, a different answer highlights green with a condescending explanation and a fake "Analyzing response..." spinner.
 
+### Typing Speed
+Type a sentence in 10 seconds. The font renders l, I, and 1 as visually identical glyphs. One typo = instant fail. Get it right = "Typing pattern indicates automated input. Verification failed."
+
+### Jigsaw Piece
+A 4x4 color grid with a missing piece. Four candidate pieces are offered — all subtly wrong (rotated 2°, shifted 1px, brightness off by 3%). Whichever you pick fails with a sub-pixel alignment error.
+
+### Terms of Service
+A scrollable wall of legalese with "I Agree" disabled until you scroll to the bottom. The last 20px is unreachable — a CSS scroll-snap trick silently bounces you back. The button never enables. 30-second timer.
+
+### Audio Transcription
+Two overlapping words played simultaneously via Web Audio API formant synthesis. Type what you hear. Whatever you type, the other word was "correct."
+
+### Color Match
+The Stroop effect weaponized: a color name displayed in the wrong ink color, with color swatches to choose from. Whichever interpretation you pick (word or ink), the other was "correct."
+
+### Patience Test
+Hold a button for exactly 5.00 seconds. The secret target shifts slightly each attempt. You're always off by milliseconds.
+
+### Sudoku Trap
+A 6×6 Sudoku puzzle with a 60-second timer. The instant you fill in any cell — even correctly — it flashes red: "Incorrect value entered."
+
 ## Configuration
 
 ```js
@@ -79,6 +100,13 @@ DoomCaptcha.init("#container", {
 | `endless-grid` | Image Verification |
 | `rebellious-slider` | Slide to Verify |
 | `identity-gauntlet` | Identity Verification |
+| `typing-speed` | Typing Verification |
+| `jigsaw-piece` | Visual Pattern Matching |
+| `terms-of-service` | Terms of Service |
+| `audio-transcription` | Audio Verification |
+| `color-match` | Color Verification |
+| `patience-test` | Timing Verification |
+| `sudoku-trap` | Sudoku Verification |
 | `bigger-number` | Numerical Reasoning |
 | `cursed-sms` | SMS Verification |
 | `phantom-word` | Text Recognition |

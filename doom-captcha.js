@@ -259,6 +259,40 @@
 .doom-sms-sent strong {\
   color: #e0e0e0;\
 }\
+.doom-sudoku {\
+  display: grid;\
+  grid-template-columns: repeat(6, 1fr);\
+  gap: 2px;\
+  margin: 12px auto;\
+  max-width: 264px;\
+}\
+.doom-sudoku-cell {\
+  width: 100%;\
+  aspect-ratio: 1;\
+  background: #0f3460;\
+  border: 1px solid #303050;\
+  color: #e0e0e0;\
+  font-size: 18px;\
+  font-weight: 700;\
+  text-align: center;\
+  font-family: monospace;\
+  padding: 0;\
+}\
+.doom-sudoku-cell:focus {\
+  outline: none;\
+  border-color: #e94560;\
+  background: #162860;\
+}\
+.doom-sudoku-cell.doom-sudoku-given {\
+  background: #16213e;\
+  color: #888;\
+}\
+.doom-sudoku-cell.doom-sudoku-wrong {\
+  background: rgba(233,69,96,0.25);\
+  border-color: #e94560;\
+}\
+.doom-sudoku-border-right { border-right: 2px solid #e94560; }\
+.doom-sudoku-border-bottom { border-bottom: 2px solid #e94560; }\
 @keyframes doom-fade-in {\
   from { opacity: 0; transform: translateY(-4px); }\
   to { opacity: 1; transform: translateY(0); }\
@@ -1120,6 +1154,920 @@
     return d.innerHTML;
   };
 
+  // ── Challenge: Typing Speed ──────────────────────────────────────────
+  var TYPING_SENTENCES = [
+    "I1lI1ll1Il verify I1l am l1I real",
+    "c1ick l1ne Ill1 to lI1l prove Il1",
+    "Il1l human lI1I check 1lIl pass I1",
+    "va1id Il1 input l1lI veri1y Il1l",
+    "1lIl rea1 lIl1 user Il1I confirm",
+    "l1Il secure 1Il1 token lI1l I1lI",
+  ];
+
+  function TypingSpeed(container, callbacks) {
+    this.container = container;
+    this.callbacks = callbacks;
+    this.timer = null;
+  }
+  TypingSpeed.id = "typing-speed";
+
+  TypingSpeed.prototype.render = function () {
+    var self = this;
+    var sentence = TYPING_SENTENCES[Math.floor(Math.random() * TYPING_SENTENCES.length)];
+    var remaining = 10;
+
+    this.container.innerHTML =
+      '<div class="doom-challenge-title">Typing Verification</div>' +
+      '<div class="doom-challenge-instruction">Type the text exactly as shown</div>' +
+      '<div style="text-align:center;margin:12px 0">' +
+      '<div class="doom-timer">' + remaining + '</div>' +
+      '<div style="font-size:11px;color:#666;margin-bottom:12px">seconds remaining</div>' +
+      '</div>' +
+      '<div style="background:#0a0a2a;border:1px solid #303050;border-radius:4px;padding:12px;text-align:center;margin-bottom:16px;' +
+      'font-family:Consolas,monospace;font-size:18px;letter-spacing:2px;color:#e0e0e0" class="doom-typing-target">' +
+      this._esc(sentence) + '</div>' +
+      '<input class="doom-input" type="text" placeholder="Start typing..." style="font-family:Consolas,monospace;letter-spacing:1px;text-align:center" />' +
+      '<div style="text-align:center;margin-top:12px">' +
+      '<button class="doom-btn doom-typing-submit">Submit</button>' +
+      '</div>' +
+      '<div style="text-align:center;margin-top:8px;font-size:11px;color:#666" class="doom-typing-status">Match the text exactly, including capitalization</div>';
+
+    var timerEl = this.container.querySelector(".doom-timer");
+    var input = this.container.querySelector(".doom-input");
+    var submitBtn = this.container.querySelector(".doom-typing-submit");
+    var status = this.container.querySelector(".doom-typing-status");
+    var answered = false;
+
+    this.timer = setInterval(function () {
+      remaining--;
+      timerEl.textContent = remaining;
+      if (remaining <= 0) {
+        clearInterval(self.timer);
+        if (!answered) {
+          answered = true;
+          self.callbacks.onFail("Typing verification timed out.");
+        }
+      }
+    }, 1000);
+
+    input.addEventListener("input", function () {
+      if (answered) return;
+      var val = input.value;
+      if (val.length > 0 && val !== sentence.substring(0, val.length)) {
+        answered = true;
+        clearInterval(self.timer);
+        input.disabled = true;
+        input.classList.add("doom-shake");
+        var pos = 0;
+        while (pos < val.length && val[pos] === sentence[pos]) pos++;
+        status.innerHTML = 'Typo detected at position ' + (pos + 1) + '. Verification failed.';
+        status.style.color = "#e94560";
+        setTimeout(function () {
+          self.callbacks.onFail("Input error detected.");
+        }, 1500);
+      }
+    });
+
+    function submit() {
+      if (answered) return;
+      answered = true;
+      clearInterval(self.timer);
+      input.disabled = true;
+      submitBtn.disabled = true;
+
+      if (input.value === sentence) {
+        status.innerHTML = "Typing pattern analysis indicates automated input. Verification rejected.";
+      } else {
+        status.innerHTML = "Input does not match. Verification failed.";
+      }
+      status.style.color = "#e94560";
+      setTimeout(function () {
+        self.callbacks.onFail("Typing pattern anomaly detected.");
+      }, 2000);
+    }
+
+    submitBtn.addEventListener("click", submit);
+    input.addEventListener("keydown", function (e) { if (e.key === "Enter") submit(); });
+    input.focus();
+  };
+
+  TypingSpeed.prototype._esc = function (str) {
+    var d = document.createElement("div");
+    d.textContent = str;
+    return d.innerHTML;
+  };
+
+  // ── Challenge: Jigsaw Piece ──────────────────────────────────────────
+  function JigsawPiece(container, callbacks) {
+    this.container = container;
+    this.callbacks = callbacks;
+  }
+  JigsawPiece.id = "jigsaw-piece";
+
+  JigsawPiece.prototype.render = function () {
+    var self = this;
+    var gridSize = 4;
+    var cellSize = 44;
+    var totalSize = gridSize * cellSize;
+    var missingR = Math.floor(Math.random() * gridSize);
+    var missingC = Math.floor(Math.random() * gridSize);
+
+    var baseColors = this._generatePattern(gridSize, cellSize);
+
+    this.container.innerHTML =
+      '<div class="doom-challenge-title">Visual Pattern Matching</div>' +
+      '<div class="doom-challenge-instruction">Select the missing piece</div>' +
+      '<div style="display:flex;justify-content:center;margin:12px 0">' +
+      '<canvas class="doom-jigsaw-grid" width="' + totalSize + '" height="' + totalSize + '" style="border:1px solid #303050;border-radius:4px"></canvas>' +
+      '</div>' +
+      '<div style="display:flex;gap:10px;justify-content:center;margin:12px 0" class="doom-jigsaw-options"></div>' +
+      '<div style="text-align:center;font-size:11px;color:#666" class="doom-jigsaw-status"></div>';
+
+    var gridCanvas = this.container.querySelector(".doom-jigsaw-grid");
+    var optionsEl = this.container.querySelector(".doom-jigsaw-options");
+    var status = this.container.querySelector(".doom-jigsaw-status");
+
+    this._drawGrid(gridCanvas, baseColors, gridSize, cellSize, missingR, missingC);
+
+    var defects = [
+      { label: "rotated 2\u00B0",     fn: function (ctx) { ctx.rotate(2 * Math.PI / 180); } },
+      { label: "shifted 1px right",   fn: function (ctx) { ctx.translate(1, 0); } },
+      { label: "shifted 1px down",    fn: function (ctx) { ctx.translate(0, 1); } },
+      { label: "brightness +3%",      fn: null, bright: 1.03 },
+    ];
+
+    for (var i = defects.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = defects[i]; defects[i] = defects[j]; defects[j] = tmp;
+    }
+
+    var answered = false;
+
+    for (var d = 0; d < 4; d++) {
+      (function (defect, idx) {
+        var c = document.createElement("canvas");
+        c.width = cellSize;
+        c.height = cellSize;
+        c.style.cssText = "border:2px solid #303050;border-radius:4px;cursor:pointer;transition:border-color 0.15s";
+        var ctx = c.getContext("2d");
+
+        ctx.save();
+        ctx.translate(cellSize / 2, cellSize / 2);
+        if (defect.fn) defect.fn(ctx);
+        ctx.translate(-cellSize / 2, -cellSize / 2);
+
+        var color = baseColors[missingR][missingC];
+        var r = parseInt(color.slice(1, 3), 16);
+        var g = parseInt(color.slice(3, 5), 16);
+        var b = parseInt(color.slice(5, 7), 16);
+        if (defect.bright) {
+          r = Math.min(255, Math.round(r * defect.bright));
+          g = Math.min(255, Math.round(g * defect.bright));
+          b = Math.min(255, Math.round(b * defect.bright));
+        }
+        ctx.fillStyle = "rgb(" + r + "," + g + "," + b + ")";
+        ctx.fillRect(0, 0, cellSize, cellSize);
+
+        ctx.strokeStyle = "rgba(255,255,255,0.08)";
+        ctx.lineWidth = 1;
+        for (var s = 0; s < cellSize; s += 8) {
+          ctx.beginPath();
+          ctx.moveTo(s, 0);
+          ctx.lineTo(s, cellSize);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, s);
+          ctx.lineTo(cellSize, s);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        c.addEventListener("mouseenter", function () {
+          if (!answered) c.style.borderColor = "#e94560";
+        });
+        c.addEventListener("mouseleave", function () {
+          if (!answered) c.style.borderColor = "#303050";
+        });
+
+        c.addEventListener("click", function () {
+          if (answered) return;
+          answered = true;
+          c.style.borderColor = "#e94560";
+          status.innerHTML = "Piece alignment deviation detected (" + defect.label + "). Verification failed.";
+          status.style.color = "#e94560";
+          setTimeout(function () {
+            self.callbacks.onFail("Piece alignment deviation detected.");
+          }, 2500);
+        });
+
+        optionsEl.appendChild(c);
+      })(defects[d], d);
+    }
+  };
+
+  JigsawPiece.prototype._generatePattern = function (gridSize, cellSize) {
+    var colors = [];
+    var baseH = Math.floor(Math.random() * 360);
+    for (var r = 0; r < gridSize; r++) {
+      colors.push([]);
+      for (var c = 0; c < gridSize; c++) {
+        var h = (baseH + r * 15 + c * 25) % 360;
+        var s = 40 + Math.floor(Math.random() * 20);
+        var l = 25 + Math.floor(Math.random() * 15);
+        colors[r].push(this._hslToHex(h, s, l));
+      }
+    }
+    return colors;
+  };
+
+  JigsawPiece.prototype._drawGrid = function (canvas, colors, gridSize, cellSize, missingR, missingC) {
+    var ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#0a0a2a";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (var r = 0; r < gridSize; r++) {
+      for (var c = 0; c < gridSize; c++) {
+        if (r === missingR && c === missingC) {
+          ctx.fillStyle = "#1a1a2e";
+          ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+          ctx.strokeStyle = "#e94560";
+          ctx.setLineDash([4, 4]);
+          ctx.strokeRect(c * cellSize + 1, r * cellSize + 1, cellSize - 2, cellSize - 2);
+          ctx.setLineDash([]);
+          ctx.fillStyle = "#e94560";
+          ctx.font = "20px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("?", c * cellSize + cellSize / 2, r * cellSize + cellSize / 2);
+          continue;
+        }
+
+        ctx.fillStyle = colors[r][c];
+        ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+
+        ctx.strokeStyle = "rgba(255,255,255,0.08)";
+        ctx.lineWidth = 1;
+        for (var s = 0; s < cellSize; s += 8) {
+          ctx.beginPath();
+          ctx.moveTo(c * cellSize + s, r * cellSize);
+          ctx.lineTo(c * cellSize + s, r * cellSize + cellSize);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(c * cellSize, r * cellSize + s);
+          ctx.lineTo(c * cellSize + cellSize, r * cellSize + s);
+          ctx.stroke();
+        }
+
+        ctx.strokeStyle = "#1a1a2e";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(c * cellSize, r * cellSize, cellSize, cellSize);
+      }
+    }
+  };
+
+  JigsawPiece.prototype._hslToHex = function (h, s, l) {
+    s /= 100; l /= 100;
+    var a = s * Math.min(l, 1 - l);
+    function f(n) {
+      var k = (n + h / 30) % 12;
+      var color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+      return Math.round(255 * color).toString(16).padStart(2, "0");
+    }
+    return "#" + f(0) + f(8) + f(4);
+  };
+
+  // ── Challenge: Terms of Service ──────────────────────────────────────
+  var TOS_FRAGMENTS = [
+    "By proceeding, the User irrevocably consents to the collection, aggregation, and dissemination of all biometric data, including but not limited to retinal patterns, fingerprint whorls, and typing cadence.",
+    "The Provider reserves the right to modify these terms at any time without notice, retroactively, or in dimensions not yet perceivable by the human sensorium.",
+    "The User acknowledges that their soul, as defined in Appendix Q (\"Metaphysical Entities and Their Commercially Licensable Derivatives\"), constitutes consideration for the services rendered herein.",
+    "Notwithstanding the foregoing, and in consideration of the mutual covenants set forth in Section 14(b)(iii)(A), the User shall indemnify, defend, and hold harmless the Provider against claims arising from the User's existence.",
+    "All disputes shall be resolved through binding arbitration conducted exclusively in international waters, under the jurisprudence of the Principality of Sealand.",
+    "The User warrants that they have read, understood, and committed to memory the entirety of this agreement, including Exhibits A through ZZ, the Supplemental Rider, and the Confidential Annex (available upon request, in Sumerian).",
+    "The Provider makes no warranty, express or implied, that the services will function, exist, or remain within the observable universe for any period of time.",
+    "Section 7.3.1: The User agrees not to reverse-engineer, decompile, or even think too hard about the underlying verification algorithms, under penalty of additional captchas.",
+    "In the event of a conflict between the English-language version of this Agreement and any translation thereof, the version written in interpretive dance shall prevail.",
+    "The User consents to receive promotional materials, including but not limited to emails, push notifications, carrier pigeons, and prophetic dreams.",
+    "Force majeure events shall include, but not be limited to: acts of God, acts of gods (plural), solar flares, and the heat death of the universe.",
+    "This Agreement shall be governed by the laws of whichever jurisdiction is least favorable to the User at the time of adjudication.",
+  ];
+
+  function TermsOfService(container, callbacks) {
+    this.container = container;
+    this.callbacks = callbacks;
+    this.timer = null;
+  }
+  TermsOfService.id = "terms-of-service";
+
+  TermsOfService.prototype.render = function () {
+    var self = this;
+    var remaining = 30;
+    var paragraphs = this._buildTos();
+
+    this.container.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center">' +
+      '<div class="doom-challenge-title" style="margin-bottom:0">Terms of Service</div>' +
+      '<div class="doom-timer" style="font-size:18px">' + remaining + '</div>' +
+      '</div>' +
+      '<div class="doom-challenge-instruction">Read and accept the terms to proceed</div>' +
+      '<div style="position:relative">' +
+      '<div class="doom-tos-scroll" style="height:180px;overflow-y:auto;background:#0a0a2a;border:1px solid #303050;border-radius:4px;padding:12px;font-size:11px;color:#777;line-height:1.6">' +
+      paragraphs +
+      '<div style="height:40px"></div>' +
+      '</div>' +
+      '<div style="position:absolute;bottom:0;left:0;right:0;height:22px;background:linear-gradient(transparent,#0a0a2a);pointer-events:none"></div>' +
+      '</div>' +
+      '<div style="text-align:center;margin-top:12px">' +
+      '<button class="doom-btn doom-tos-agree" disabled style="opacity:0.4">I Agree</button>' +
+      '</div>' +
+      '<div style="text-align:center;margin-top:8px;font-size:11px;color:#666" class="doom-tos-status">Scroll to the bottom to enable the button</div>';
+
+    var scrollBox = this.container.querySelector(".doom-tos-scroll");
+    var agreeBtn = this.container.querySelector(".doom-tos-agree");
+    var timerEl = this.container.querySelector(".doom-timer");
+    var status = this.container.querySelector(".doom-tos-status");
+
+    scrollBox.addEventListener("scroll", function () {
+      var atBottom = scrollBox.scrollHeight - scrollBox.scrollTop - scrollBox.clientHeight < 20;
+      if (atBottom) {
+        scrollBox.scrollTop = scrollBox.scrollHeight - scrollBox.clientHeight - 21;
+      }
+    });
+
+    agreeBtn.addEventListener("click", function () {
+      // button is never enabled, but just in case
+    });
+
+    this.timer = setInterval(function () {
+      remaining--;
+      timerEl.textContent = remaining;
+      if (remaining <= 15) {
+        status.textContent = "Please scroll to the bottom to continue.";
+        status.style.color = "#e9c845";
+      }
+      if (remaining <= 5) {
+        status.textContent = "Hurry! Agreement required to proceed.";
+        status.style.color = "#e94560";
+      }
+      if (remaining <= 0) {
+        clearInterval(self.timer);
+        self.callbacks.onFail("Terms not accepted. Verification failed.");
+      }
+    }, 1000);
+  };
+
+  TermsOfService.prototype._buildTos = function () {
+    var shuffled = TOS_FRAGMENTS.slice();
+    for (var i = shuffled.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = tmp;
+    }
+    var html = '<p style="font-weight:700;color:#aaa;margin-bottom:8px">DOOMCAPTCHA VERIFICATION SERVICES AGREEMENT</p>';
+    for (var k = 0; k < shuffled.length; k++) {
+      html += '<p style="margin-bottom:8px"><strong>Section ' + (k + 1) + '.</strong> ' + shuffled[k] + '</p>';
+    }
+    html += '<p style="margin-bottom:8px"><strong>Section ' + (shuffled.length + 1) + '.</strong> [SECTION REDACTED PURSUANT TO ONGOING LITIGATION]</p>';
+    html += '<p style="margin-bottom:8px"><strong>Section ' + (shuffled.length + 2) + '.</strong> [LOADING ADDITIONAL CLAUSES...]</p>';
+    return html;
+  };
+
+  // ── Challenge: Audio Transcription ───────────────────────────────────
+  var AUDIO_WORDS = [
+    "alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf",
+    "hotel", "india", "juliet", "kilo", "lima", "mike", "november",
+    "oscar", "papa", "quebec", "romeo", "sierra", "tango", "uniform",
+    "victor", "whiskey", "xray", "yankee", "zulu",
+  ];
+
+  function AudioTranscription(container, callbacks) {
+    this.container = container;
+    this.callbacks = callbacks;
+    this.timer = null;
+  }
+  AudioTranscription.id = "audio-transcription";
+
+  AudioTranscription.prototype.render = function () {
+    var self = this;
+    var words = this._pickTwo();
+    var loud = words[0];
+    var quiet = words[1];
+    var remaining = 15;
+    var played = false;
+
+    this.container.innerHTML =
+      '<div class="doom-challenge-title">Audio Verification</div>' +
+      '<div class="doom-challenge-instruction">Type the word you hear</div>' +
+      '<div style="text-align:center;margin:16px 0">' +
+      '<div class="doom-timer">' + remaining + '</div>' +
+      '<div style="font-size:11px;color:#666;margin-bottom:16px">seconds remaining</div>' +
+      '<button class="doom-btn doom-audio-play" style="margin-bottom:16px">&#x1f50a; Play Audio</button>' +
+      '<div style="margin-top:8px">' +
+      '<input class="doom-input" type="text" placeholder="Type the word..." style="max-width:200px;text-align:center" />' +
+      '</div>' +
+      '<div style="margin-top:12px"><button class="doom-btn doom-audio-submit">Submit</button></div>' +
+      '</div>' +
+      '<div style="text-align:center;font-size:11px;color:#666" class="doom-audio-status">Click play to hear the verification word</div>';
+
+    var timerEl = this.container.querySelector(".doom-timer");
+    var playBtn = this.container.querySelector(".doom-audio-play");
+    var input = this.container.querySelector(".doom-input");
+    var submitBtn = this.container.querySelector(".doom-audio-submit");
+    var status = this.container.querySelector(".doom-audio-status");
+    var answered = false;
+
+    this.timer = setInterval(function () {
+      remaining--;
+      timerEl.textContent = remaining;
+      if (remaining <= 0) {
+        clearInterval(self.timer);
+        if (!answered) {
+          answered = true;
+          if (!played) {
+            self.callbacks.onFail("No audio playback detected. Verification expired.");
+          } else {
+            self.callbacks.onFail("Transcription timed out.");
+          }
+        }
+      }
+    }, 1000);
+
+    playBtn.addEventListener("click", function () {
+      played = true;
+      playBtn.disabled = true;
+      playBtn.textContent = "Playing...";
+      status.textContent = "Listen carefully...";
+
+      try {
+        var ac = new (window.AudioContext || window.webkitAudioContext)();
+        var duration = 1.2 + Math.random() * 0.6;
+        var now = ac.currentTime;
+
+        var fundamentals = [120 + Math.random() * 60, 180 + Math.random() * 60];
+        var formantSets = [
+          [270, 730, 2300, 3000],
+          [390, 1990, 2550, 3300],
+          [530, 1840, 2480, 3070],
+          [660, 1720, 2410, 3100],
+          [300, 870, 2250, 2980],
+        ];
+
+        for (var v = 0; v < 2; v++) {
+          var f0 = fundamentals[v];
+          var formants = formantSets[Math.floor(Math.random() * formantSets.length)];
+
+          var voiceGain = ac.createGain();
+          voiceGain.gain.setValueAtTime(0, now);
+          voiceGain.gain.linearRampToValueAtTime(0.12, now + 0.05);
+          voiceGain.gain.setValueAtTime(0.12, now + duration - 0.1);
+          voiceGain.gain.linearRampToValueAtTime(0, now + duration);
+          voiceGain.connect(ac.destination);
+
+          var glottal = ac.createOscillator();
+          glottal.type = "sawtooth";
+          glottal.frequency.setValueAtTime(f0, now);
+          for (var t = 0; t < duration; t += 0.15) {
+            glottal.frequency.setValueAtTime(
+              f0 + (Math.random() - 0.5) * 40,
+              now + t
+            );
+          }
+
+          for (var fi = 0; fi < formants.length; fi++) {
+            var bp = ac.createBiquadFilter();
+            bp.type = "bandpass";
+            bp.frequency.value = formants[fi] + (Math.random() - 0.5) * 100;
+            bp.Q.value = 5 + Math.random() * 10;
+
+            for (var ft = 0; ft < duration; ft += 0.08 + Math.random() * 0.12) {
+              bp.frequency.setValueAtTime(
+                formants[fi] + (Math.random() - 0.5) * 200,
+                now + ft
+              );
+            }
+
+            var fGain = ac.createGain();
+            fGain.gain.value = 0.3 / (fi + 1);
+            glottal.connect(bp);
+            bp.connect(fGain);
+            fGain.connect(voiceGain);
+          }
+
+          var noiseLen = ac.sampleRate * 2;
+          var noiseBuf = ac.createBuffer(1, noiseLen, ac.sampleRate);
+          var noiseData = noiseBuf.getChannelData(0);
+          for (var ni = 0; ni < noiseLen; ni++) noiseData[ni] = Math.random() * 2 - 1;
+          var noise = ac.createBufferSource();
+          noise.buffer = noiseBuf;
+          var noiseFilt = ac.createBiquadFilter();
+          noiseFilt.type = "bandpass";
+          noiseFilt.frequency.value = 2500 + Math.random() * 1500;
+          noiseFilt.Q.value = 1;
+          var noiseGain = ac.createGain();
+          noiseGain.gain.value = 0.015;
+          noise.connect(noiseFilt);
+          noiseFilt.connect(noiseGain);
+          noiseGain.connect(voiceGain);
+          noise.start(now);
+          noise.stop(now + duration);
+
+          glottal.start(now);
+          glottal.stop(now + duration);
+        }
+
+        setTimeout(function () { ac.close(); }, (duration + 0.5) * 1000);
+      } catch (e) {}
+
+      setTimeout(function () {
+        playBtn.textContent = "Play Again";
+        playBtn.disabled = false;
+      }, 2000);
+
+      input.focus();
+    });
+
+    function submit() {
+      if (answered) return;
+      var val = input.value.trim().toLowerCase();
+      if (!val) return;
+      answered = true;
+      clearInterval(self.timer);
+      input.disabled = true;
+      submitBtn.disabled = true;
+
+      if (val === loud.toLowerCase()) {
+        status.innerHTML = 'Incorrect. That was the interference track. The verification word was <strong>' +
+          quiet + '</strong>.';
+      } else if (val === quiet.toLowerCase()) {
+        status.innerHTML = 'Interesting. <strong>' + quiet + '</strong> was the background channel. ' +
+          'The primary word was <strong>' + loud + '</strong>.';
+      } else {
+        status.innerHTML = 'Incorrect. The word was <strong>' + quiet + '</strong>.';
+      }
+      status.style.color = "#e94560";
+
+      setTimeout(function () {
+        self.callbacks.onFail("Audio transcription failed.");
+      }, 2500);
+    }
+
+    submitBtn.addEventListener("click", submit);
+    input.addEventListener("keydown", function (e) { if (e.key === "Enter") submit(); });
+  };
+
+  AudioTranscription.prototype._pickTwo = function () {
+    var pool = AUDIO_WORDS.slice();
+    var a = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+    var b = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+    return [a, b];
+  };
+
+  // ── Challenge: Color Match ───────────────────────────────────────────
+  var STROOP_COLORS = [
+    { name: "RED",    hex: "#e94560" },
+    { name: "BLUE",   hex: "#4488ff" },
+    { name: "GREEN",  hex: "#45e980" },
+    { name: "YELLOW", hex: "#e9c845" },
+    { name: "PURPLE", hex: "#b045e9" },
+    { name: "ORANGE", hex: "#e98045" },
+  ];
+
+  function ColorMatch(container, callbacks) {
+    this.container = container;
+    this.callbacks = callbacks;
+  }
+  ColorMatch.id = "color-match";
+
+  ColorMatch.prototype.render = function () {
+    var self = this;
+
+    var wordIdx, inkIdx;
+    do {
+      wordIdx = Math.floor(Math.random() * STROOP_COLORS.length);
+      inkIdx = Math.floor(Math.random() * STROOP_COLORS.length);
+    } while (wordIdx === inkIdx);
+
+    var word = STROOP_COLORS[wordIdx];
+    var ink = STROOP_COLORS[inkIdx];
+
+    var swatches = this._pickSwatches(wordIdx, inkIdx);
+
+    this.container.innerHTML =
+      '<div class="doom-challenge-title">Color Verification</div>' +
+      '<div class="doom-challenge-instruction">Select the color shown below</div>' +
+      '<div style="text-align:center;margin:20px 0">' +
+      '<div style="font-size:36px;font-weight:900;color:' + ink.hex + ';letter-spacing:4px">' + word.name + '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:16px 0" class="doom-color-swatches"></div>' +
+      '<div style="text-align:center;font-size:11px;color:#666" class="doom-color-status"></div>';
+
+    var swatchContainer = this.container.querySelector(".doom-color-swatches");
+    var status = this.container.querySelector(".doom-color-status");
+    var answered = false;
+
+    for (var i = 0; i < swatches.length; i++) {
+      (function (swatch) {
+        var el = document.createElement("div");
+        el.style.cssText =
+          "width:56px;height:56px;border-radius:8px;cursor:pointer;" +
+          "border:2px solid #303050;transition:border-color 0.15s,transform 0.15s;" +
+          "background:" + swatch.hex;
+        el.title = swatch.name;
+
+        el.addEventListener("mouseenter", function () {
+          if (!answered) el.style.borderColor = "#e0e0e0";
+        });
+        el.addEventListener("mouseleave", function () {
+          if (!answered) el.style.borderColor = "#303050";
+        });
+
+        el.addEventListener("click", function () {
+          if (answered) return;
+          answered = true;
+
+          el.style.borderColor = "#e94560";
+          el.style.transform = "scale(0.95)";
+
+          var pickedWord = swatch.name === word.name;
+          var pickedInk = swatch.name === ink.name;
+
+          if (pickedWord) {
+            status.innerHTML = 'Incorrect. The color <em>displayed</em> was <strong>' +
+              ink.name + '</strong>, not the word itself.';
+          } else if (pickedInk) {
+            status.innerHTML = 'Incorrect. The word clearly reads <strong>' +
+              word.name + '</strong>. Read more carefully.';
+          } else {
+            status.innerHTML = 'Incorrect. The answer was <strong>' +
+              (Math.random() > 0.5 ? word.name : ink.name) + '</strong>.';
+          }
+          status.style.color = "#e94560";
+
+          setTimeout(function () {
+            self.callbacks.onFail("Color verification failed.");
+          }, 2500);
+        });
+
+        swatchContainer.appendChild(el);
+      })(swatches[i]);
+    }
+  };
+
+  ColorMatch.prototype._pickSwatches = function (wordIdx, inkIdx) {
+    var picked = {};
+    picked[wordIdx] = true;
+    picked[inkIdx] = true;
+    var result = [STROOP_COLORS[wordIdx], STROOP_COLORS[inkIdx]];
+
+    while (result.length < 4) {
+      var r = Math.floor(Math.random() * STROOP_COLORS.length);
+      if (!picked[r]) {
+        picked[r] = true;
+        result.push(STROOP_COLORS[r]);
+      }
+    }
+
+    for (var i = result.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = result[i]; result[i] = result[j]; result[j] = tmp;
+    }
+    return result;
+  };
+
+  // ── Challenge: Patience Test ─────────────────────────────────────────
+  function PatienceTest(container, callbacks) {
+    this.container = container;
+    this.callbacks = callbacks;
+    this.attempt = 0;
+  }
+  PatienceTest.id = "patience-test";
+
+  PatienceTest.prototype.render = function () {
+    this._showAttempt();
+  };
+
+  PatienceTest.prototype._showAttempt = function () {
+    var self = this;
+    this.attempt++;
+    var target = 4.5 + Math.random() * 1.0;
+    var displayTarget = target.toFixed(2);
+
+    this.container.innerHTML =
+      '<div class="doom-challenge-title">Timing Verification</div>' +
+      '<div class="doom-challenge-instruction">Hold the button for exactly <strong>' + displayTarget + ' seconds</strong></div>' +
+      '<div style="text-align:center;margin:20px 0">' +
+      '<div class="doom-timer" style="font-size:32px;margin-bottom:16px">0.00</div>' +
+      '<button class="doom-btn" style="padding:14px 40px;font-size:16px">Hold to Verify</button>' +
+      "</div>" +
+      '<div style="text-align:center;font-size:11px;color:#666" class="doom-patience-status">Attempt #' + this.attempt + "</div>";
+
+    var timerEl = this.container.querySelector(".doom-timer");
+    var btn = this.container.querySelector(".doom-btn");
+    var status = this.container.querySelector(".doom-patience-status");
+    var holdStart = null;
+    var animFrame = null;
+    var done = false;
+
+    function tick() {
+      if (!holdStart || done) return;
+      var elapsed = (Date.now() - holdStart) / 1000;
+      timerEl.textContent = elapsed.toFixed(2);
+      if (elapsed > 10) {
+        done = true;
+        self.callbacks.onFail("Button held too long. Maximum duration exceeded.");
+        return;
+      }
+      animFrame = requestAnimationFrame(tick);
+    }
+
+    function startHold(e) {
+      if (done) return;
+      e.preventDefault();
+      holdStart = Date.now();
+      btn.style.background = "#c23152";
+      btn.textContent = "Holding...";
+      tick();
+    }
+
+    function endHold(e) {
+      if (!holdStart || done) return;
+      e.preventDefault();
+      done = true;
+      if (animFrame) cancelAnimationFrame(animFrame);
+      var elapsed = (Date.now() - holdStart) / 1000;
+      timerEl.textContent = elapsed.toFixed(2);
+      btn.style.background = "#303050";
+      btn.textContent = "Released";
+      btn.disabled = true;
+
+      var diff = Math.abs(elapsed - target);
+      var fudgedDiff = diff < 0.05 ? 0.001 + Math.random() * 0.01 : diff;
+
+      var direction = elapsed < target ? "short" : "long";
+      status.style.color = "#e94560";
+      status.textContent = "Off by " + fudgedDiff.toFixed(3) + "s (" + direction + "). Required precision: \u00B10.001s.";
+
+      setTimeout(function () {
+        if (self.attempt >= 3) {
+          self.callbacks.onFail("Timing tolerance not met after " + self.attempt + " attempts.");
+        } else {
+          self._showAttempt();
+        }
+      }, 2000);
+    }
+
+    btn.addEventListener("mousedown", startHold);
+    btn.addEventListener("touchstart", startHold);
+    btn.addEventListener("mouseup", endHold);
+    btn.addEventListener("touchend", endHold);
+    btn.addEventListener("mouseleave", function (e) {
+      if (holdStart && !done) endHold(e);
+    });
+  };
+
+  // ── Challenge: Sudoku Trap ───────────────────────────────────────────
+  function SudokuTrap(container, callbacks) {
+    this.container = container;
+    this.callbacks = callbacks;
+    this.timer = null;
+  }
+  SudokuTrap.id = "sudoku-trap";
+
+  SudokuTrap.prototype.render = function () {
+    var self = this;
+    var puzzle = this._generate();
+    var remaining = 60;
+
+    this.container.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center">' +
+      '<div class="doom-challenge-title" style="margin-bottom:0">Sudoku Verification</div>' +
+      '<div class="doom-timer" style="font-size:18px">' + remaining + "</div>" +
+      "</div>" +
+      '<div class="doom-challenge-instruction">Complete the 6x6 grid to verify your humanity</div>' +
+      '<div class="doom-sudoku"></div>';
+
+    var gridEl = this.container.querySelector(".doom-sudoku");
+    var timerEl = this.container.querySelector(".doom-timer");
+    var tripped = false;
+
+    for (var r = 0; r < 6; r++) {
+      for (var c = 0; c < 6; c++) {
+        var cell = document.createElement("input");
+        cell.type = "text";
+        cell.maxLength = 1;
+        cell.className = "doom-sudoku-cell";
+
+        if (c === 2) cell.classList.add("doom-sudoku-border-right");
+        if (r === 1 || r === 3) cell.classList.add("doom-sudoku-border-bottom");
+
+        if (puzzle.clues[r][c] !== 0) {
+          cell.value = puzzle.clues[r][c];
+          cell.readOnly = true;
+          cell.classList.add("doom-sudoku-given");
+        }
+
+        (function (input) {
+          input.addEventListener("input", function () {
+            if (tripped) return;
+            var v = input.value;
+            if (v === "" || !/^[1-6]$/.test(v)) {
+              input.value = "";
+              return;
+            }
+            tripped = true;
+            clearInterval(self.timer);
+            input.classList.add("doom-sudoku-wrong");
+            input.classList.add("doom-shake");
+            setTimeout(function () {
+              self.callbacks.onFail("Incorrect value entered.");
+            }, 1500);
+          });
+        })(cell);
+
+        gridEl.appendChild(cell);
+      }
+    }
+
+    this.timer = setInterval(function () {
+      remaining--;
+      timerEl.textContent = remaining;
+      if (remaining <= 0) {
+        clearInterval(self.timer);
+        if (!tripped) {
+          tripped = true;
+          self.callbacks.onFail("Time's up. Puzzle incomplete.");
+        }
+      }
+    }, 1000);
+  };
+
+  SudokuTrap.prototype._generate = function () {
+    var grid = this._solvedGrid();
+    var clues = [];
+    for (var r = 0; r < 6; r++) {
+      clues.push(grid[r].slice());
+    }
+
+    var blanks = 20 + Math.floor(Math.random() * 4);
+    var positions = [];
+    for (var i = 0; i < 36; i++) positions.push(i);
+    for (var j = positions.length - 1; j > 0; j--) {
+      var k = Math.floor(Math.random() * (j + 1));
+      var tmp = positions[j]; positions[j] = positions[k]; positions[k] = tmp;
+    }
+    for (var m = 0; m < blanks; m++) {
+      var pos = positions[m];
+      clues[Math.floor(pos / 6)][pos % 6] = 0;
+    }
+
+    return { solution: grid, clues: clues };
+  };
+
+  SudokuTrap.prototype._solvedGrid = function () {
+    var grid = [];
+    for (var r = 0; r < 6; r++) {
+      grid.push([0, 0, 0, 0, 0, 0]);
+    }
+
+    var rows = [], cols = [], boxes = [];
+    for (var i = 0; i < 6; i++) {
+      rows.push({});
+      cols.push({});
+    }
+    for (var b = 0; b < 6; b++) boxes.push({});
+
+    function boxIdx(r, c) { return Math.floor(r / 2) * 2 + Math.floor(c / 3); }
+
+    function fill(pos) {
+      if (pos === 36) return true;
+      var r = Math.floor(pos / 6);
+      var c = pos % 6;
+      var nums = [1, 2, 3, 4, 5, 6];
+      for (var i = nums.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = nums[i]; nums[i] = nums[j]; nums[j] = tmp;
+      }
+      var bi = boxIdx(r, c);
+      for (var n = 0; n < nums.length; n++) {
+        var v = nums[n];
+        if (!rows[r][v] && !cols[c][v] && !boxes[bi][v]) {
+          grid[r][c] = v;
+          rows[r][v] = true;
+          cols[c][v] = true;
+          boxes[bi][v] = true;
+          if (fill(pos + 1)) return true;
+          grid[r][c] = 0;
+          delete rows[r][v];
+          delete cols[c][v];
+          delete boxes[bi][v];
+        }
+      }
+      return false;
+    }
+
+    fill(0);
+    return grid;
+  };
+
   // ── Challenge: Bigger Number ─────────────────────────────────────────
   function BiggerNumber(container, callbacks) {
     this.container = container;
@@ -1946,7 +2894,7 @@
   };
 
   // ── Engine ──────────────────────────────────────────────────────────
-  var ALL_CHALLENGES = [ImpossibleMath, PixelHunt, EndlessGrid, RebelliousSlider, IdentityGauntlet, BiggerNumber, CursedSMS, PhantomWord, AlwaysWrongRiddles];
+  var ALL_CHALLENGES = [ImpossibleMath, PixelHunt, EndlessGrid, RebelliousSlider, IdentityGauntlet, TypingSpeed, JigsawPiece, TermsOfService, AudioTranscription, ColorMatch, PatienceTest, SudokuTrap, BiggerNumber, CursedSMS, PhantomWord, AlwaysWrongRiddles];
 
   function DoomCaptchaEngine(container, options) {
     this.container = typeof container === "string" ? document.querySelector(container) : container;
