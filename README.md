@@ -81,6 +81,24 @@ Hold a button for exactly 5.00 seconds. The secret target shifts slightly each a
 ### Sudoku Trap
 A 6×6 Sudoku puzzle with a 60-second timer. The instant you fill in any cell — even correctly — it flashes red: "Incorrect value entered."
 
+### Accessibility Audio
+An audio captcha alternative: six DTMF digit tones buried in heavy static, played once. "Replay" plays the same static but with 2 digits quietly swapped. Each replay drifts further from the original. There is no stable answer.
+
+### Draw the Line
+"Draw a straight line from A to B to prove you're human." The canvas slowly rotates while you draw, warping your straight stroke into a curve. Draw fast: "Tremor detected." Draw slow: "Unnaturally consistent velocity." Nail the line: deviation inflated past the threshold anyway.
+
+### Confidence Checkbox
+The classic "I'm not a robot" checkbox. Click it too fast: "Bot-like response time (0.3s)." Click it after hesitating: "Irregular delay suggests scripted wait()." The acceptable window is 40ms wide and shifts randomly. Even if you hit it, "Click coordinates match known automation framework."
+
+### Rotate to Upright
+Drag-rotate a rotationally ambiguous image (starfish, mandala, pinwheel, snowflake, etc.) to its "correct" orientation. Whatever angle you submit, it snaps nearby: "Almost! Off by 3° clockwise." No correct angle exists.
+
+### Semantic Minefield
+"Select all squares containing food." A 3×3 grid mixes obvious food, obvious non-food, and edge cases (tomato plant, empty plate, dog food bowl, ornamental gourds, wax fruit). On submit, the ambiguous items are flipped against your selection.
+
+### Face Direction
+"Click the face looking directly at the camera." A 3×3 grid of portrait headshots, all gazing 1–3° off center. Click any face, and a different one highlights as "more direct" with angular measurements to two decimal places.
+
 ## Configuration
 
 ```js
@@ -111,6 +129,12 @@ DoomCaptcha.init("#container", {
 | `cursed-sms` | SMS Verification |
 | `phantom-word` | Text Recognition |
 | `always-wrong-riddles` | Knowledge Verification |
+| `accessibility-audio` | Accessibility Audio Verification |
+| `draw-the-line` | Motor Precision Test |
+| `confidence-checkbox` | One-Click Verification |
+| `rotate-to-upright` | Orientation Verification |
+| `semantic-minefield` | Image Classification |
+| `face-direction` | Gaze Detection |
 
 ## Custom Challenges
 
